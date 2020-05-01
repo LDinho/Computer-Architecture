@@ -7,6 +7,14 @@ PRN = 0b01000111
 HLT = 0b00000001
 MUL = 0b10100010
 
+ADD = 0b10100000
+PUSH = 0b01000101  # Push instruction on stack
+POP = 0b01000110  # Pop instruction off stack
+
+CALL = 0b01010000  # Jump to a subroutine's address
+RET = 0b00010001  # Go to return address after subroutine is done
+
+
 is_running = True
 
 
@@ -18,6 +26,7 @@ class CPU:
         self.ram = [0] * 256
         self.reg = [0] * 8
         self.pc = 0
+        self.sp = 7  # 8th register position
 
     def ram_read(self, address):
         data = self.ram[address]
@@ -61,7 +70,7 @@ class CPU:
                     instruction_number = int(number_string, 2)
 
                     # this just prints out the binary code and conversion to decimal
-                    print(f'{instruction_number:08b} is {instruction_number:0d}')
+                    # print(f'{instruction_number:08b} is {instruction_number:0d}')
 
                     self.ram[address] = instruction_number  # populate memory array
                     address += 1
@@ -73,7 +82,7 @@ class CPU:
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
 
-        if op == "ADD":
+        if op == ADD:
             self.reg[reg_a] += self.reg[reg_b]
 
         elif op == MUL:
@@ -91,8 +100,8 @@ class CPU:
 
         print(f"TRACE: %02X | %02X %02X %02X |" % (
             self.pc,
-            #self.fl,
-            #self.ie,
+            # self.fl,
+            # self.ie,
             self.ram_read(self.pc),
             self.ram_read(self.pc + 1),
             self.ram_read(self.pc + 2)
@@ -111,6 +120,7 @@ class CPU:
             opcode = self.ram[self.pc]
             operand_a = self.ram_read(self.pc + 1)
             operand_b = self.ram_read(self.pc + 2)
+
             if opcode == LDI:
                 self.reg[operand_a] = operand_b
                 self.pc += 3
@@ -120,6 +130,40 @@ class CPU:
             elif opcode == MUL:
                 self.alu(opcode, operand_a, operand_b)
                 self.pc += 3
+
+            elif opcode == ADD:
+                self.alu(opcode, operand_a, operand_b)
+                self.pc += 3
+
+            elif opcode == PUSH:
+                # record value to be pushed on stack
+                operand_a = self.ram_read(self.pc + 1)
+                self.ram_write(self.sp, self.reg[operand_a])
+                self.sp -= 1  # decrement stack pointer (memory by 1)
+                self.pc += 2  # (since we have one argument)
+
+            elif opcode == POP:
+                operand_a = self.ram_read(self.pc + 1)
+                self.reg[operand_a] = self.ram_read(self.sp + 1)
+                self.sp += 1  # increment stack pointer
+                self.pc += 2
+
+            elif opcode == CALL:
+                val = self.pc + 2
+                reg = self.ram[self.pc + 1]
+                subroutine_addr = self.reg[reg]
+
+                self.reg[self.sp] -= 1  # decrement stack pointer
+                self.ram[self.reg[self.sp]] = val
+
+                self.pc = subroutine_addr  # update address
+
+            elif opcode == RET:
+                return_addr = self.reg[self.sp]
+                self.pc = self.ram[return_addr]
+
+                self.reg[self.sp] += 1
+
             elif opcode == HLT:
                 sys.exit(0)
             else:
