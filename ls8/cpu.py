@@ -14,6 +14,16 @@ POP = 0b01000110  # Pop instruction off stack
 CALL = 0b01010000  # Jump to a subroutine's address
 RET = 0b00010001  # Go to return address after subroutine is done
 
+CMP = 0b10100111  # Compare - if values are equal set E flag to 1, else to zero
+JMP = 0b01010100  # Jump to addr stored
+JEQ = 0b01010101  # Jump to addr if equal flag is true
+JNE = 0b01010110  # Jump to addr if equal flag is false
+
+# flags:
+# L = 0
+# E = 0
+# G = 0
+
 
 is_running = True
 
@@ -27,6 +37,7 @@ class CPU:
         self.reg = [0] * 8
         self.pc = 0
         self.sp = 7  # 8th register position
+        self.flags = [0]*8
 
     def ram_read(self, address):
         data = self.ram[address]
@@ -163,6 +174,44 @@ class CPU:
                 self.pc = self.ram[return_addr]
 
                 self.reg[self.sp] += 1
+
+            elif opcode == CMP:
+                self.flags = CMP
+
+                if self.reg[self.ram_read(self.pc+1)] < self.reg[self.ram_read(self.pc+2)]:
+                    L = 1
+                    G = 0
+                    E = 0
+                    self.flags = 0b00000100
+
+                elif self.reg[self.ram_read(self.pc+1)] > self.reg[self.ram_read(self.pc+2)]:
+                    L = 0
+                    G = 1
+                    E = 0
+                    self.flags = 0b00000010
+
+                elif self.reg[self.ram_read(self.pc+1)] == self.reg[self.ram_read(self.pc+2)]:
+                    L = 0
+                    G = 0
+                    E = 1
+                    self.flags = 0b00000001
+
+                self.pc += 3
+
+            elif opcode == JMP:
+                self.pc = self.reg[self.ram_read(self.pc+1)]
+
+            elif opcode == JEQ:
+                if E == 1:
+                    self.pc = self.reg[self.ram_read(self.pc+1)]
+                else:
+                    self.pc += 2
+
+            elif opcode == JNE:
+                if E == 0:
+                    self.pc = self.reg[self.ram_read(self.pc+1)]
+                else:
+                    self.pc += 2
 
             elif opcode == HLT:
                 sys.exit(0)
